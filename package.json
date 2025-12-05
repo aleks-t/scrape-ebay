@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "eBay Market Research Tool - Railway + Raspberry Pi Edition",
   "scripts": {
-    "start": "cd server && node index.js",
+    "start": "node server/index.js",
     "build": "cd client && npm install && npm run build",
     "postinstall": "cd server && npm install && cd ../client && npm install",
     "cli": "node cli.js",
