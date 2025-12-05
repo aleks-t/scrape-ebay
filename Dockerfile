@@ -6,6 +6,9 @@ WORKDIR /app
 # Copy root package files
 COPY package.json ./
 
+# Copy services (for Gemini image identification)
+COPY services ./services
+
 # Copy backend (lightweight server)
 COPY server ./server
 

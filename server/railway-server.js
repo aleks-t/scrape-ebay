@@ -7,12 +7,29 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Large limit for results
+
+// File upload for image identification
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+// Import Gemini identifier (but make it optional)
+let identifyItem = null;
+try {
+  const idService = require('../services/identifier');
+  identifyItem = idService.identifyItem;
+  console.log('✅ Gemini AI image identification enabled');
+} catch (e) {
+  console.log('⚠️  Gemini disabled (no API key or module missing)');
+}
 
 // In-memory storage (resets on deploy - that's OK!)
 const jobs = new Map();
@@ -78,6 +95,41 @@ app.get('/api/history', (req, res) => {
     }));
   
   res.json(recentJobs);
+});
+
+// Image Identification (Gemini AI)
+app.post('/api/identify', upload.single('image'), async (req, res) => {
+  if (!identifyItem) {
+    return res.status(503).json({ 
+      error: 'Image identification not available. Set GEMINI_API_KEY on Railway.' 
+    });
+  }
+
+  try {
+    let imageInput;
+    let isUrl = false;
+
+    if (req.file) {
+      // Image uploaded as file
+      imageInput = req.file.buffer;
+    } else if (req.body.imageUrl) {
+      // Image URL provided
+      imageInput = req.body.imageUrl;
+      isUrl = true;
+    } else {
+      return res.status(400).json({ error: 'No image provided' });
+    }
+
+    console.log(`🖼️  Identifying image${isUrl ? ' from URL' : ' upload'}...`);
+    const result = await identifyItem(imageInput, isUrl);
+    
+    console.log(`✅ Identified: "${result.searchTerm}"`);
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ Image identification failed:', error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ============================================================================
