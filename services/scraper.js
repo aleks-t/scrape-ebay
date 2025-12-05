@@ -743,7 +743,7 @@ async function scrapeEbay(searchTerm, options = {}, onProgress = () => {}) {
   const initPage = async () => {
     if (page) await page.close().catch(() => {});
     if (context) await context.close().catch(() => {});
-    context = await browser.createIncognitoBrowserContext();
+    context = await browser.createBrowserContext();
     page = await context.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
     await page.setExtraHTTPHeaders({ 

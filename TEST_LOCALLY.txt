@@ -1,0 +1,85 @@
+╔══════════════════════════════════════════════════════════════╗
+║           TEST THE FULL SYSTEM ON YOUR MAC FIRST            ║
+╚══════════════════════════════════════════════════════════════╝
+
+FOLDER STRUCTURE:
+─────────────────────────────────────────────────────────────
+
+internal-app/
+├── server/                    GOES TO RAILWAY
+│   └── railway-server.js      (lightweight job queue)
+│
+├── client/                    GOES TO RAILWAY
+│   └── (React UI)
+│
+├── pi-worker/                 GOES TO RASPBERRY PI (test on Mac first!)
+│   ├── index.js              (polls for jobs)
+│   └── scraper.js            (does the scraping)
+│
+├── services/                  GOES TO RASPBERRY PI
+│   ├── scraper.js            (your scraper logic)
+│   └── identifier.js         (Gemini AI)
+│
+└── cli.js                     YOUR ORIGINAL CLI (still works!)
+
+
+═══════════════════════════════════════════════════════════════
+
+STEP 1: TEST LOCALLY ON MAC
+─────────────────────────────────────────────────────────────
+
+Terminal 1 - Start the "Railway" server locally:
+  cd ~/Desktop/internal-app
+  node server/railway-server.js
+
+Terminal 2 - Start the worker (pretending to be Pi):
+  cd ~/Desktop/internal-app/pi-worker
+  export API_URL=http://localhost:3000
+  export WORKER_SECRET=test-secret-123
+  node index.js
+
+Terminal 3 - Open browser and test:
+  open http://localhost:3000
+  
+  Try searching for "iPhone 13"
+  Watch Terminal 1 (server logs) and Terminal 2 (worker logs)
+
+
+═══════════════════════════════════════════════════════════════
+
+STEP 2: DEPLOY TO RAILWAY
+─────────────────────────────────────────────────────────────
+
+Once local test works:
+  cd ~/Desktop/internal-app
+  railway up
+
+Set environment variable on Railway:
+  WORKER_SECRET=test-secret-123
+
+Open Railway URL in browser.
+
+
+═══════════════════════════════════════════════════════════════
+
+STEP 3: MOVE WORKER TO RASPBERRY PI
+─────────────────────────────────────────────────────────────
+
+Copy these folders to Pi:
+  scp -r pi-worker services pi@raspberrypi.local:~/ebay-scraper/
+
+On Pi:
+  cd ~/ebay-scraper/pi-worker
+  nano .env
+  
+  Paste:
+    API_URL=https://your-railway-url.up.railway.app
+    WORKER_SECRET=test-secret-123
+  
+  npm install
+  pm2 start index.js --name ebay-worker
+  pm2 save
+
+
+═══════════════════════════════════════════════════════════════
+
