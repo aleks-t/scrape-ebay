@@ -25,6 +25,9 @@ WORKDIR /app
 # Copy root package files
 COPY package.json ./
 
+# Copy services (needed by server)
+COPY services ./services
+
 # Copy backend
 COPY server ./server
 
