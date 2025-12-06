@@ -48,9 +48,12 @@ export default function App() {
     }
 
     if (jobId) {
+      let failureCount = 0;
       interval = setInterval(async () => {
         try {
           const res = await axios.get(`/api/jobs/${jobId}`);
+          failureCount = 0; // Reset on success
+          
           if (res.data.progress) setProgress(res.data.progress);
           if (res.data.result) setData(res.data.result);
 
@@ -59,8 +62,8 @@ export default function App() {
             setLoading(false);
             setJobId(null);
             setProgress(null);
-            localStorage.removeItem('activeJobId'); // Clear saved job
-            fetchHistory(); // Refresh history dropdown
+            localStorage.removeItem('activeJobId');
+            fetchHistory();
           } else if (res.data.status === 'failed') {
             setError(res.data.errorMessage || 'Search failed');
             setLoading(false);
@@ -69,7 +72,16 @@ export default function App() {
             localStorage.removeItem('activeJobId');
           }
         } catch (e) {
-          if (e.code !== 'ERR_NETWORK' && e.response?.status !== 502) console.error("Polling error", e);
+          failureCount++;
+          // If job not found or too many failures, clear it
+          if (e.response?.status === 404 || failureCount > 3) {
+            console.log('Job not found or failed to load, clearing...');
+            setError('Job not found. It may have expired.');
+            setLoading(false);
+            setJobId(null);
+            setProgress(null);
+            localStorage.removeItem('activeJobId');
+          }
         }
       }, 5000);
     }
