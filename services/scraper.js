@@ -237,8 +237,10 @@ function buildTitleKey(title, tokenStats, totalDocs) {
 }
 
 function buildFuzzyGroups(listings, similarityThreshold = 0.6) {
-  // Optimization: If dataset is too large (> 2000 items), skip expensive O(n^2) fuzzy grouping
-  if (listings.length > 2000) {
+  // Optimization: If dataset is large, skip expensive O(n^2) fuzzy grouping
+  // Reduced threshold for Raspberry Pi performance
+  if (listings.length > 200) {
+      console.log(`⚡ Skipping fuzzy grouping (${listings.length} items - too slow on Pi)`);
       return []; 
   }
 
@@ -838,13 +840,20 @@ async function scrapeEbay(searchTerm, options = {}, onProgress = () => {}) {
                     const idMatch = url.match(/\/itm\/(\d+)/);
                     const itemId = idMatch ? idMatch[1] : '';
                     
-                    // Image
+                    // Image (Improved extraction)
                     let image = '';
-                    const imgEl = card.querySelector('.s-item__image-img, .s-item__image img');
+                    const imgEl = card.querySelector('.s-item__image-img, .s-item__image img, .s-card__image, .su-media__image img');
                     if (imgEl) {
-                       image = imgEl.getAttribute('data-defer-load') || imgEl.src;
+                       // Prioritize data-defer-load (lazy loaded high res) -> data-src -> src
+                       image = imgEl.getAttribute('data-defer-load') || 
+                               imgEl.getAttribute('data-src') || 
+                               imgEl.getAttribute('data-config-src') ||
+                               imgEl.src;
+                       
                        if (image && !image.startsWith('data:')) {
-                         image = image.replace(/s-l\d+\.webp/, 's-l500.webp').replace(/s-l\d+\.jpg/, 's-l500.jpg');
+                         // Convert thumbnails to 500px
+                         image = image.replace(/s-l\d+\.webp/, 's-l500.webp')
+                                      .replace(/s-l\d+\.jpg/, 's-l500.jpg');
                        }
                     }
 

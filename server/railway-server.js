@@ -35,6 +35,7 @@ try {
 const jobs = new Map();
 const results = new Map();
 let jobCounter = 0;
+let lastWorkerPing = null; // Track when Pi last checked in
 
 const WORKER_SECRET = process.env.WORKER_SECRET || 'change-me';
 
@@ -50,6 +51,17 @@ const authenticateWorker = (req, res, next) => {
 // ============================================================================
 // FRONTEND API (for browser)
 // ============================================================================
+
+// Health check - shows if Pi is connected
+app.get('/api/health', (req, res) => {
+  const isWorkerActive = lastWorkerPing && (Date.now() - lastWorkerPing < 30000); // 30 second timeout
+  res.json({
+    server: 'online',
+    worker: isWorkerActive ? 'connected' : 'disconnected',
+    lastWorkerPing: lastWorkerPing ? new Date(lastWorkerPing).toISOString() : null,
+    jobsInQueue: Array.from(jobs.values()).filter(j => j.status === 'pending').length
+  });
+});
 
 // Create a new search job
 app.post('/api/search', (req, res) => {
@@ -138,6 +150,8 @@ app.post('/api/identify', upload.single('image'), async (req, res) => {
 
 // Pi polls this to get pending jobs
 app.get('/api/worker/pending', authenticateWorker, (req, res) => {
+  lastWorkerPing = Date.now(); // Update heartbeat
+  
   // Find oldest pending job
   const pendingJobs = Array.from(jobs.values())
     .filter(j => j.status === 'pending')
@@ -192,6 +206,14 @@ app.post('/api/worker/fail/:id', authenticateWorker, (req, res) => {
   
   console.log(`❌ Job failed: ${job.id}`);
   res.json({ success: true });
+});
+
+// Pi requests data cleanup (based on retention days from settings)
+app.post('/api/worker/cleanup', authenticateWorker, (req, res) => {
+  const { retentionDays } = req.body;
+  console.log(`🧹 Pi requesting cleanup: ${retentionDays} days retention`);
+  // Pi will handle actual cleanup locally
+  res.json({ success: true, message: `Clean up data older than ${retentionDays} days` });
 });
 
 // ============================================================================

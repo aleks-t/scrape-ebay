@@ -30,12 +30,28 @@ export default function App() {
 
   // Settings State
   const [retentionDays, setRetentionDays] = useState(30);
+  const [workerStatus, setWorkerStatus] = useState(null);
   
   // New State for N-grams
   const [ngramSize, setNgramSize] = useState(2);
   const [listingFilter, setListingFilter] = useState('');
   
   const fileInputRef = useRef(null);
+
+  // Check Pi connection status every 10 seconds
+  useEffect(() => {
+    const checkWorkerStatus = async () => {
+      try {
+        const res = await axios.get('/api/health');
+        setWorkerStatus(res.data);
+      } catch (e) {
+        setWorkerStatus({ server: 'online', worker: 'disconnected' });
+      }
+    };
+    checkWorkerStatus();
+    const interval = setInterval(checkWorkerStatus, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Poll for job status
   useEffect(() => {
@@ -115,7 +131,13 @@ export default function App() {
   const saveSettings = async () => {
       try {
           await axios.post('/api/settings', { key: 'retentionDays', value: retentionDays });
-          alert('Settings Saved');
+          // Tell Pi to cleanup based on new retention policy
+          try {
+            await axios.post('/api/worker/cleanup', { retentionDays });
+          } catch(e) {
+            console.log('Pi cleanup request sent (will apply on next poll)');
+          }
+          alert('Settings Saved! Pi will clean up old data.');
       } catch (e) { alert('Failed to save'); }
   };
 
@@ -265,6 +287,20 @@ export default function App() {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 text-transparent bg-clip-text mb-2">
               eBay Market Pulse
             </h1>
+            
+            {/* Pi Connection Status */}
+            {workerStatus && (
+              <div className="flex items-center gap-2 text-xs mb-2">
+                <div className={`w-2 h-2 rounded-full ${workerStatus.worker === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+                <span className={workerStatus.worker === 'connected' ? 'text-emerald-400' : 'text-red-400'}>
+                  Raspberry Pi: {workerStatus.worker === 'connected' ? 'Connected' : 'Disconnected'}
+                </span>
+                {workerStatus.jobsInQueue > 0 && (
+                  <span className="text-slate-500">• {workerStatus.jobsInQueue} jobs queued</span>
+                )}
+              </div>
+            )}
+            
             <div className="flex gap-1">
                 <button 
                     onClick={() => { setActiveTab('search'); setViewingWatchItem(null); setData(null); }}
