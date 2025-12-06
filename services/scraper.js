@@ -9,8 +9,8 @@ puppeteer.use(StealthPlugin());
 // ============================================================================
 const CONFIG = {
   headless: 'new',
-  delayMin: 5000,   // Much slower to avoid eBay blocks (5-10 seconds)
-  delayMax: 10000,   
+  delayMin: 3000,   // 3 seconds minimum (safe but faster)
+  delayMax: 6000,   // 6 seconds maximum
   maxPages: 500,
   defaultDays: 7,
   timeout: 60000,
