@@ -15,8 +15,19 @@ async function fetch(url, options = {}) {
 
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+async function checkCleanup() {
+    try {
+        // Check if Railway has cleanup request (would be in a separate endpoint)
+        // For now, we'll handle cleanup locally based on retention days
+        // This can be enhanced later
+    } catch (e) {}
+}
+
 async function pollForWork() {
     try {
+        // Check for cleanup requests first
+        await checkCleanup();
+        
         console.log('🔍 Checking for jobs...');
         const res = await fetch(`${API_URL}/api/worker/pending`, {
             headers: { 'x-worker-secret': WORKER_SECRET }

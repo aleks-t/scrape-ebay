@@ -840,21 +840,36 @@ async function scrapeEbay(searchTerm, options = {}, onProgress = () => {}) {
                     const idMatch = url.match(/\/itm\/(\d+)/);
                     const itemId = idMatch ? idMatch[1] : '';
                     
-                    // Image (Improved extraction)
+                    // Image (Improved extraction - try multiple selectors)
                     let image = '';
-                    const imgEl = card.querySelector('.s-item__image-img, .s-item__image img, .s-card__image, .su-media__image img');
-                    if (imgEl) {
-                       // Prioritize data-defer-load (lazy loaded high res) -> data-src -> src
-                       image = imgEl.getAttribute('data-defer-load') || 
-                               imgEl.getAttribute('data-src') || 
-                               imgEl.getAttribute('data-config-src') ||
-                               imgEl.src;
-                       
-                       if (image && !image.startsWith('data:')) {
-                         // Convert thumbnails to 500px
-                         image = image.replace(/s-l\d+\.webp/, 's-l500.webp')
-                                      .replace(/s-l\d+\.jpg/, 's-l500.jpg');
-                       }
+                    // Try multiple selectors for different eBay layouts
+                    const imgSelectors = [
+                      '.s-item__image-img',
+                      '.s-item__image img',
+                      '.s-card__image',
+                      '.su-media__image img',
+                      'img[data-defer-load]',
+                      'img[data-src]',
+                      'img.s-card__image'
+                    ];
+                    
+                    for (const selector of imgSelectors) {
+                      const imgEl = card.querySelector(selector);
+                      if (imgEl) {
+                        // Prioritize data-defer-load (lazy loaded high res) -> data-src -> src
+                        image = imgEl.getAttribute('data-defer-load') || 
+                                imgEl.getAttribute('data-src') || 
+                                imgEl.getAttribute('data-config-src') ||
+                                imgEl.src;
+                        
+                        if (image && !image.startsWith('data:') && image.includes('ebayimg.com')) {
+                          // Convert thumbnails to 500px
+                          image = image.replace(/s-l\d+\.webp/, 's-l500.webp')
+                                       .replace(/s-l\d+\.jpg/, 's-l500.jpg')
+                                       .replace(/s-l\d+\.png/, 's-l500.png');
+                          break; // Found valid image, stop searching
+                        }
+                      }
                     }
 
                     items.push({ itemId, title: title.slice(0, 100), price, soldDate, condition, url, image });
