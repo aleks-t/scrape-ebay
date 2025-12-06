@@ -652,7 +652,31 @@ function analyzeBrandPerformance(listings) {
 
 function analyzeData(allListings, searchTerm, targetDays) {
   console.log('\n📊 Starting Data Analysis... (This may take a moment)');
-  const singleItems = filterBulkLots(allListings);
+  try {
+    const singleItems = filterBulkLots(allListings);
+    // ... (rest of function)
+    
+    // optimization check
+    if (allListings.length > 200) {
+       console.log(`⚡ Skipping fuzzy grouping (${allListings.length} items - too slow on Pi)`);
+    }
+    
+    const priceStats = analyzePrices(singleItems);
+    // ...
+    
+    return {
+      // ... result object
+    };
+  } catch (error) {
+    console.error("❌ Analysis Error:", error);
+    // Return partial result if analysis fails
+    return {
+      meta: { searchTerm, targetDays, fetchedAt: new Date().toISOString(), error: error.message },
+      stats: { price: { count: allListings.length, mean: 0, median: 0 } },
+      listings: allListings
+    };
+  }
+}
   const priceStats = analyzePrices(singleItems);
   const ngrams2 = extractNgrams(singleItems, 2);
   const ngrams3 = extractNgrams(singleItems, 3);
