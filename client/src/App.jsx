@@ -223,18 +223,40 @@ export default function App() {
   };
 
   const loadHistoryItem = async (id) => {
-    setLoading(true); setData(null); setListingFilter(''); setViewingWatchItem(null);
+    if (!id || id === '') return; // Don't load if empty selection
+    
+    setLoading(true); 
+    setData(null); 
+    setListingFilter(''); 
+    setViewingWatchItem(null);
+    setError(null);
+    setProgress(null);
+    setJobId(null);
     localStorage.removeItem('activeJobId'); // Clear any active background job tracking
+    
     try {
       const res = await axios.get(`/api/jobs/${id}`);
-      if (res.data.status === 'completed') {
+      
+      if (res.data.status === 'completed' && res.data.result) {
         setData(res.data.result);
-        setTerm(res.data.searchTerm.replace(/\s\(\d+ days\)/, '')); 
-      } else {
+        setTerm(res.data.searchTerm || ''); 
+        setLoading(false);
+      } else if (res.data.status === 'processing' || res.data.status === 'pending') {
+        // Job still in progress - track it
         setJobId(id);
+        if (res.data.progress) setProgress(res.data.progress);
+      } else if (res.data.status === 'failed') {
+        setError(res.data.errorMessage || 'Job failed');
+        setLoading(false);
+      } else {
+        setError('Job has no result data');
+        setLoading(false);
       }
-    } catch (e) { setError('Could not load history item'); } 
-    finally { if (!jobId) setLoading(false); }
+    } catch (e) { 
+      console.error('History load error:', e);
+      setError('Could not load history item: ' + (e.response?.data?.error || e.message)); 
+      setLoading(false);
+    }
   };
 
   const getCurrentNgrams = () => {
@@ -324,9 +346,21 @@ export default function App() {
           </div>
           
           {activeTab === 'search' && history.length > 0 && (
-             <select onChange={(e) => loadHistoryItem(e.target.value)} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" value="">
+             <select 
+               onChange={(e) => {
+                 const selectedId = e.target.value;
+                 if (selectedId) loadHistoryItem(selectedId);
+               }} 
+               className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" 
+               value=""
+               onFocus={(e) => e.target.value = ""} // Reset on focus to allow re-selecting same item
+             >
                <option value="" disabled>Load History...</option>
-               {history.map(h => <option key={h.id} value={h.id}>{h.searchTerm} - {new Date(h.createdAt).toLocaleDateString()}</option>)}
+               {history.map(h => (
+                 <option key={h.id} value={h.id}>
+                   {h.searchTerm} - {new Date(h.createdAt).toLocaleDateString()} ({h.status})
+                 </option>
+               ))}
              </select>
           )}
         </header>
@@ -479,7 +513,12 @@ export default function App() {
                  </div>
              )}
 
-             {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg">{error}</div>}
+             {error && (
+               <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg flex items-center justify-between">
+                 <span>{error}</span>
+                 <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300 ml-4">✕</button>
+               </div>
+             )}
 
              {loading && !data && (
                <div className="text-center py-20">

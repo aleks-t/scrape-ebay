@@ -61,19 +61,34 @@ async function pollForWork() {
 
         // Start Scraping
         const results = await scrapeEbay(job.searchTerm, { days: job.days }, async (progress) => {
-            // Send Progress Update
-            try {
-                await fetch(`${API_URL}/api/worker/progress/${job.id}`, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'x-worker-secret': WORKER_SECRET 
-                    },
-                    body: JSON.stringify(progress)
-                });
-                process.stdout.write(`\rPage ${progress.page}: ${progress.itemsFound} items found...`);
-            } catch(e) {
-                console.error('Failed to send progress:', e.message);
+            // Send Progress Update (with retry and timeout)
+            let retries = 3;
+            while (retries > 0) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                    
+                    await fetch(`${API_URL}/api/worker/progress/${job.id}`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'x-worker-secret': WORKER_SECRET 
+                        },
+                        body: JSON.stringify(progress),
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                    process.stdout.write(`\rPage ${progress.page}: ${progress.itemsFound} items found...`);
+                    break; // Success, exit retry loop
+                } catch(e) {
+                    retries--;
+                    if (retries === 0) {
+                        // Don't spam errors - just silently fail progress updates
+                        process.stdout.write(`\rPage ${progress.page}: ${progress.itemsFound} items found...`);
+                    } else {
+                        await sleep(1000); // Wait before retry
+                    }
+                }
             }
         });
 
